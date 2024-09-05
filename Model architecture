@@ -1,0 +1,53 @@
+import torch.nn as nn
+
+class EnhancedHybridGNNModel(nn.Module):
+    def __init__(self, feature_size, gnn_hidden_channels, mlp_hidden_channels, dropout_rate, num_gnn_layers):
+        super(EnhancedHybridGNNModel, self).__init__()
+
+        self.gnn_layers = nn.ModuleList()
+        self.pooling_layers = nn.ModuleList()
+
+        for i in range(num_gnn_layers):
+            in_channels = 1 if i == 0 else gnn_hidden_channels
+            self.gnn_layers.append(
+                nn.Sequential(
+                    GATConv(in_channels, gnn_hidden_channels),
+                    nn.BatchNorm1d(gnn_hidden_channels),  # Batch normalization
+                    nn.ReLU(),
+                    nn.Dropout(p=dropout_rate)  # Dropout
+                )
+            )
+
+            # Dynamic pooling
+            self.pooling_layers.append(TopKPooling(gnn_hidden_channels, ratio=0.8))
+
+        # Update the final MLP to output a single logit (for binary classification)
+        self.mlp = nn.Sequential(
+            nn.Linear(gnn_hidden_channels + feature_size, mlp_hidden_channels),
+            nn.BatchNorm1d(mlp_hidden_channels),
+            nn.ReLU(),
+            nn.Dropout(p=dropout_rate),
+            nn.Linear(mlp_hidden_channels, 1)  # Output a single logit, no Sigmoid here
+        )
+
+    
+    def forward(self, graph):
+         x, edge_index, batch = graph.x, graph.edge_index, graph.batch
+
+         for conv, pool in zip(self.gnn_layers, self.pooling_layers):
+            x = conv(x, edge_index)
+            x, edge_index, _, batch, _ = pool(x, edge_index, batch=batch)
+
+    # Global pooling to obtain one feature vector per graph (for each sample)
+         x = global_mean_pool(x, batch)
+
+    # Concatenate node-level features with graph-level features if necessary
+         features = graph.features.view(x.size(0), -1)  # Ensure features size matches batch size
+         x = torch.cat([x, features], dim=1)
+
+    # Apply the MLP, which outputs a single logit per sample
+         x = self.mlp(x)
+
+    # Ensure predictions are of shape (batch_size, 1)
+         return x.view(-1, 1)  # Ensures the shape is [batch_size, 1]  
+  
