@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------
 RuntimeError                              Traceback (most recent call last)
-<ipython-input-133-f26552929ccc> in <cell line: 14>()
+<ipython-input-136-f26552929ccc> in <cell line: 14>()
      14 for epoch in range(epochs):
      15     # Train the model using the train_model function
 ---> 16     train_model(model, train_loader, optimizer, focal_loss)  # Train with focal loss
@@ -8,12 +8,12 @@ RuntimeError                              Traceback (most recent call last)
      18     # Validate the model
 
 9 frames
-<ipython-input-131-784010ef04c2> in train_model(model, train_loader, optimizer, loss_fn)
-      6 
-      7         # Forward pass through the model
-----> 8         predictions = model(batch)  # Output should have size (batch_size, 1)
-      9 
-     10         # Ensure the target is reshaped and converted to float
+<ipython-input-134-f7a34abfec0a> in train_model(model, train_loader, optimizer, loss_fn)
+      3     for batch in train_loader:
+      4         batch = batch.to(device)
+----> 5         predictions = model(batch)
+      6         targets = batch.y.unsqueeze(1).long().to(device)  # Convert targets to long
+      7         loss = loss_fn(predictions, targets)
 
 /usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py in _wrapped_call_impl(self, *args, **kwargs)
    1551             return self._compiled_call_impl(*args, **kwargs)  # type: ignore[misc]
