@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------
 RuntimeError                              Traceback (most recent call last)
-<ipython-input-96-f26552929ccc> in <cell line: 14>()
+<ipython-input-98-f26552929ccc> in <cell line: 14>()
      14 for epoch in range(epochs):
      15     # Train the model using the train_model function
 ---> 16     train_model(model, train_loader, optimizer, focal_loss)  # Train with focal loss
