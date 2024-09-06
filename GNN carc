@@ -155,9 +155,10 @@ def focal_loss(predictions, targets, alpha=0.25, gamma=2.0):
     return focal_loss_value.mean()
 
 import torch
-from torch.nn import Linear, ReLU, Dropout, BatchNorm1d # Import BatchNorm1d from torch.nn
+from torch.nn import Linear, ReLU, Dropout
 import torch.nn.functional as F
-from torch_geometric.nn import Sequential, GATConv, global_mean_pool
+from torch_geometric.nn import GATConv, global_mean_pool
+from torch.nn import BatchNorm1d # Import BatchNorm1d from torch.nn
 
 class EnhancedHybridGNNModel(torch.nn.Module):
     def __init__(self, num_features, num_classes, num_gnn_layers=2):
@@ -165,32 +166,29 @@ class EnhancedHybridGNNModel(torch.nn.Module):
         self.num_gnn_layers = num_gnn_layers
 
         self.gnn_layers = torch.nn.ModuleList()
-        self.pooling_layers = torch.nn.ModuleList()
 
         for i in range(self.num_gnn_layers):
             in_channels = num_features if i == 0 else 64
-            conv = GATConv(in_channels, 64, heads=1)
-            bn = BatchNorm1d(64)
-            relu = ReLU()
-            dropout = Dropout(p=0.3)
-            self.gnn_layers.append(Sequential('x, edge_index', [
-                (conv, 'x, edge_index -> x'),
-                (bn, 'x -> x'),
-                (relu, 'x -> x'),
-                (dropout, 'x -> x')
-            ]))
+            self.gnn_layers.append(GATConv(in_channels, 64, heads=1))
+            self.gnn_layers.append(BatchNorm1d(64)) # Use BatchNorm1d from torch.nn
+            self.gnn_layers.append(ReLU())
+            self.gnn_layers.append(Dropout(p=0.3))
 
-        self.lin1 = Linear(64, 32)  # Adjust input features to 64
-        self.lin2 = Linear(32, num_classes)
+        self.lin1 = Linear(64, 32)
+        self.lin2 = Linear(32, 1)  # Output size changed to 1
 
     def forward(self, batch):
         x = batch.x
         edge_index = batch.edge_index
 
+        j = 0
         for i in range(self.num_gnn_layers):
-            x = self.gnn_layers[i](x, edge_index)
+            x = self.gnn_layers[j](x, edge_index)
+            x = self.gnn_layers[j+1](x)
+            x = self.gnn_layers[j+2](x)
+            x = self.gnn_layers[j+3](x)
+            j += 4
 
-        # Apply global mean pooling to aggregate node embeddings
         x = global_mean_pool(x, batch.batch)
 
         x = self.lin1(x)
@@ -242,8 +240,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Move the model to the device
 model = model.to(device)
 
-# Adding print statements within the train_model function to display the shapes before calculating the loss
-
 def train_model(model, train_loader, optimizer, loss_fn):
     model.train()  # Set the model to training mode
     for batch in train_loader:
@@ -268,19 +264,16 @@ def train_model(model, train_loader, optimizer, loss_fn):
         loss.backward()
         optimizer.step()
 
-# The print statements will provide insight into the shape mismatch issues just before the loss calculation.
-
 def evaluate_model(model, val_loader):
     model.eval()  # Set the model to evaluation mode
     val_loss = 0
     with torch.no_grad():  # Disable gradient calculations
         for batch in val_loader:
             batch = batch.to(device)
-            features = batch.features.to(device)
             targets = batch.y.unsqueeze(1).float().to(device)  # Ensure targets are (batch_size, 1)
 
             # Forward pass
-            predictions = model(batch, features)
+            predictions = model(batch)
 
             # Reshape predictions to match target shape
             predictions = predictions.view(-1, 1).detach()  # Reshape and detach
