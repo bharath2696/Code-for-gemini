@@ -13,6 +13,7 @@ import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import AllChem, Descriptors
 from google.colab import files
+import torch
 # Load your data
 uploaded = files.upload()
 carcinogenicity_data = pd.read_csv(list(uploaded.keys())[0])
@@ -165,6 +166,7 @@ class EnhancedHybridGNNModel(nn.Module):
         # Initialize GNN layers and pooling layers
         self.gnn_layers = nn.ModuleList()
         self.pooling_layers = nn.ModuleList()
+        self.num_gnn_layers = num_gnn_layers
 
         # Create GNN and pooling layers for each layer
         for i in range(num_gnn_layers):
@@ -189,40 +191,42 @@ class EnhancedHybridGNNModel(nn.Module):
         )
 
     # Forward method with print statements
-    def forward(self, graph):
-        # Extract graph data from the input
-        x, edge_index, batch = graph.x, graph.edge_index, graph.batch
+    def forward(self, batch):
+        x = batch.x
+        edge_index = batch.edge_index
 
-        # Apply GNN layers and pooling layers
-        for conv, pool in zip(self.gnn_layers, self.pooling_layers):
-            x = conv(x, edge_index)
-            x, edge_index, _, batch, _ = pool(x, edge_index, batch=batch)
+        for i in range(self.num_gnn_layers):
+            print(f"Layer {i}: {self.gnn_layers[i]}")  # Print the layer
 
-        # Print the shape after GNN layers
-        print("Shape after GNN layers:", x.shape)
+            # Apply GATConv with x and edge_index
+            x = self.gnn_layers[i][0](x, edge_index)
 
-        # Apply global pooling to get a single feature vector for each graph (sample)
-        x = global_mean_pool(x, batch)
+            # Apply the remaining layers in the Sequential with only x
+            for j in range(1, len(self.gnn_layers[i])):
+                x = self.gnn_layers[i][j](x)
 
-        # Print the shape after global pooling
-        print("Shape after global pooling:", x.shape)
+            x, edge_index, _, batch, _, _ = self.pooling_layers[i](x, edge_index, batch=batch)
 
-        # Concatenate additional features and ensure they match batch size
-        features = graph.features.view(x.size(0), -1)
-        x = torch.cat([x, features], dim=1)
-
-        # Apply MLP to get the final output (one logit per sample)
-        x = self.mlp(x)
-
-        # Print the shape after MLP
-        print("Shape after MLP:", x.shape)
-
-        # Return the logit with the shape [batch_size, 1]
-        return x.view(-1, 1)
+        x = self.lin1(x) #This line and the following were incorrectly indented
+        x = F.relu(x)
+        x = F.dropout(x, p=0.5, training=self.training)
+        x = self.lin2(x)
+        return x #Corrected indentation
 
 # Define the loss function
 loss_fn = nn.BCEWithLogitsLoss()
 
+# Instantiate the model
+feature_size = 128  # Example feature size
+gnn_hidden_channels = 64  # Example GNN hidden size
+mlp_hidden_channels = 128  # Example MLP hidden size
+dropout_rate = 0.3  # Example dropout rate
+num_gnn_layers = 3  # Example number of GNN layers
+
+# Create an instance of your EnhancedHybridGNNModel
+model = EnhancedHybridGNNModel(feature_size, gnn_hidden_channels, mlp_hidden_channels, dropout_rate, num_gnn_layers)
+
+# Define the optimizer with model parameters
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)  # L2 regularization
 
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -302,7 +306,19 @@ def evaluate_model(model, val_loader):
     # Return the average validation loss
     return val_loss / len(val_loader)
 
-# Assuming you already have model, optimizer, scheduler, early_stopping defined
+from torch_geometric.loader import DataLoader  # Change from data to loader
+
+# Assuming you have a dataset, let's call it 'train_dataset'
+# For example, if you are working with graphs, train_dataset could be a list of graphs
+# Example: train_dataset = [graph1, graph2, ...]
+
+# Ensure you have loaded your dataset correctly
+# train_dataset should be a list of graph objects or a PyTorch Geometric dataset
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+
+# Now you can use the DataLoader for training
+
+epochs = 50 # Add this line to define the number of epochs
 for epoch in range(epochs):
     # Train the model using the train_model function
     train_model(model, train_loader, optimizer, focal_loss)  # Train with focal loss
@@ -317,6 +333,8 @@ for epoch in range(epochs):
     if early_stopping.step(val_loss):
         print("Early stopping triggered.")
         break
+
+
 
 # K-Fold cross-validation
 final_accuracy_list = []
