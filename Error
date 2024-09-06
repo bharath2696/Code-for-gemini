@@ -1,0 +1,102 @@
+---------------------------------------------------------------------------
+RuntimeError                              Traceback (most recent call last)
+<ipython-input-96-f26552929ccc> in <cell line: 14>()
+     14 for epoch in range(epochs):
+     15     # Train the model using the train_model function
+---> 16     train_model(model, train_loader, optimizer, focal_loss)  # Train with focal loss
+     17 
+     18     # Validate the model
+
+12 frames
+<ipython-input-94-784010ef04c2> in train_model(model, train_loader, optimizer, loss_fn)
+      6 
+      7         # Forward pass through the model
+----> 8         predictions = model(batch)  # Output should have size (batch_size, 1)
+      9 
+     10         # Ensure the target is reshaped and converted to float
+
+/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py in _wrapped_call_impl(self, *args, **kwargs)
+   1551             return self._compiled_call_impl(*args, **kwargs)  # type: ignore[misc]
+   1552         else:
+-> 1553             return self._call_impl(*args, **kwargs)
+   1554 
+   1555     def _call_impl(self, *args, **kwargs):
+
+/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py in _call_impl(self, *args, **kwargs)
+   1560                 or _global_backward_pre_hooks or _global_backward_hooks
+   1561                 or _global_forward_hooks or _global_forward_pre_hooks):
+-> 1562             return forward_call(*args, **kwargs)
+   1563 
+   1564         try:
+
+<ipython-input-84-2ba4a4993c49> in forward(self, batch)
+     33 
+     34         for i in range(self.num_gnn_layers):
+---> 35             x = self.gnn_layers[i](x, edge_index)
+     36 
+     37         # Apply global mean pooling to aggregate node embeddings
+
+/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py in _wrapped_call_impl(self, *args, **kwargs)
+   1551             return self._compiled_call_impl(*args, **kwargs)  # type: ignore[misc]
+   1552         else:
+-> 1553             return self._call_impl(*args, **kwargs)
+   1554 
+   1555     def _call_impl(self, *args, **kwargs):
+
+/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py in _call_impl(self, *args, **kwargs)
+   1560                 or _global_backward_pre_hooks or _global_backward_hooks
+   1561                 or _global_forward_hooks or _global_forward_pre_hooks):
+-> 1562             return forward_call(*args, **kwargs)
+   1563 
+   1564         try:
+
+/tmp/torch_geometric.nn.sequential_fa3adb_3k9sv8d7.py in forward(self, x, edge_index)
+     21 
+     22     def forward(self, x, edge_index) -> Tensor:
+---> 23         x = self.module_0(x, edge_index)
+     24         x = self.module_1(x)
+     25         x = self.module_2(x)
+
+/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py in _wrapped_call_impl(self, *args, **kwargs)
+   1551             return self._compiled_call_impl(*args, **kwargs)  # type: ignore[misc]
+   1552         else:
+-> 1553             return self._call_impl(*args, **kwargs)
+   1554 
+   1555     def _call_impl(self, *args, **kwargs):
+
+/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py in _call_impl(self, *args, **kwargs)
+   1560                 or _global_backward_pre_hooks or _global_backward_hooks
+   1561                 or _global_forward_hooks or _global_forward_pre_hooks):
+-> 1562             return forward_call(*args, **kwargs)
+   1563 
+   1564         try:
+
+/usr/local/lib/python3.10/dist-packages/torch_geometric/nn/conv/gat_conv.py in forward(self, x, edge_index, edge_attr, size, return_attention_weights)
+    278 
+    279             if self.lin is not None:
+--> 280                 x_src = x_dst = self.lin(x).view(-1, H, C)
+    281             else:
+    282                 # If the module is initialized as bipartite, transform source
+
+/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py in _wrapped_call_impl(self, *args, **kwargs)
+   1551             return self._compiled_call_impl(*args, **kwargs)  # type: ignore[misc]
+   1552         else:
+-> 1553             return self._call_impl(*args, **kwargs)
+   1554 
+   1555     def _call_impl(self, *args, **kwargs):
+
+/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py in _call_impl(self, *args, **kwargs)
+   1560                 or _global_backward_pre_hooks or _global_backward_hooks
+   1561                 or _global_forward_hooks or _global_forward_pre_hooks):
+-> 1562             return forward_call(*args, **kwargs)
+   1563 
+   1564         try:
+
+/usr/local/lib/python3.10/dist-packages/torch_geometric/nn/dense/linear.py in forward(self, x)
+    145             x (torch.Tensor): The input features.
+    146         """
+--> 147         return F.linear(x, self.weight, self.bias)
+    148 
+    149     @torch.no_grad()
+
+RuntimeError: mat1 and mat2 shapes cannot be multiplied (2708x1433 and 128x64)
