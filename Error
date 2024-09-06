@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------
 RuntimeError                              Traceback (most recent call last)
-<ipython-input-121-f26552929ccc> in <cell line: 14>()
+<ipython-input-133-f26552929ccc> in <cell line: 14>()
      14 for epoch in range(epochs):
      15     # Train the model using the train_model function
 ---> 16     train_model(model, train_loader, optimizer, focal_loss)  # Train with focal loss
@@ -8,7 +8,7 @@ RuntimeError                              Traceback (most recent call last)
      18     # Validate the model
 
 9 frames
-<ipython-input-119-784010ef04c2> in train_model(model, train_loader, optimizer, loss_fn)
+<ipython-input-131-784010ef04c2> in train_model(model, train_loader, optimizer, loss_fn)
       6 
       7         # Forward pass through the model
 ----> 8         predictions = model(batch)  # Output should have size (batch_size, 1)
@@ -29,12 +29,12 @@ RuntimeError                              Traceback (most recent call last)
    1563 
    1564         try:
 
-<ipython-input-112-79c421709559> in forward(self, batch)
-     29         j = 0
-     30         for i in range(self.num_gnn_layers):
----> 31             x = self.gnn_layers[j](x, edge_index)
-     32             x = self.gnn_layers[j+1](x)
-     33             x = self.gnn_layers[j+2](x)
+<ipython-input-124-cb638a1a74cf> in forward(self, batch)
+     28         j = 0
+     29         for i in range(self.num_gnn_layers):
+---> 30             x = self.gnn_layers[j](x, edge_index)
+     31             x = self.gnn_layers[j+1](x)
+     32             x = self.gnn_layers[j+2](x)
 
 /usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py in _wrapped_call_impl(self, *args, **kwargs)
    1551             return self._compiled_call_impl(*args, **kwargs)  # type: ignore[misc]
