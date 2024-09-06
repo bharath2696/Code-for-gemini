@@ -155,76 +155,61 @@ def focal_loss(predictions, targets, alpha=0.25, gamma=2.0):
     return focal_loss_value.mean()
 
 import torch
-import torch.nn as nn
-from torch_geometric.nn import GATConv, TopKPooling, global_mean_pool
+from torch.nn import Linear, ReLU, Dropout, BatchNorm1d # Import BatchNorm1d from torch.nn
+import torch.nn.functional as F
+from torch_geometric.nn import Sequential, GATConv, global_mean_pool
 
-# Define the GNN model architecture
-class EnhancedHybridGNNModel(nn.Module):
-    def __init__(self, feature_size, gnn_hidden_channels, mlp_hidden_channels, dropout_rate, num_gnn_layers):
+class EnhancedHybridGNNModel(torch.nn.Module):
+    def __init__(self, num_features, num_classes, num_gnn_layers=2):
         super(EnhancedHybridGNNModel, self).__init__()
-
-        # Initialize GNN layers and pooling layers
-        self.gnn_layers = nn.ModuleList()
-        self.pooling_layers = nn.ModuleList()
         self.num_gnn_layers = num_gnn_layers
 
-        # Create GNN and pooling layers for each layer
-        for i in range(num_gnn_layers):
-            in_channels = 1 if i == 0 else gnn_hidden_channels
-            self.gnn_layers.append(
-                nn.Sequential(
-                    GATConv(in_channels, gnn_hidden_channels),
-                    nn.BatchNorm1d(gnn_hidden_channels),
-                    nn.ReLU(),
-                    nn.Dropout(p=dropout_rate)
-                )
-            )
-            self.pooling_layers.append(TopKPooling(gnn_hidden_channels, ratio=0.8))
+        self.gnn_layers = torch.nn.ModuleList()
+        self.pooling_layers = torch.nn.ModuleList()
 
-        # Define MLP (Fully Connected Layer) to output a single logit for binary classification
-        self.mlp = nn.Sequential(
-            nn.Linear(gnn_hidden_channels + feature_size, mlp_hidden_channels),
-            nn.BatchNorm1d(mlp_hidden_channels),
-            nn.ReLU(),
-            nn.Dropout(p=dropout_rate),
-            nn.Linear(mlp_hidden_channels, 1)  # Output a single logit for binary classification
-        )
+        for i in range(self.num_gnn_layers):
+            in_channels = num_features if i == 0 else 64
+            conv = GATConv(in_channels, 64, heads=1)
+            bn = BatchNorm1d(64)
+            relu = ReLU()
+            dropout = Dropout(p=0.3)
+            self.gnn_layers.append(Sequential('x, edge_index', [
+                (conv, 'x, edge_index -> x'),
+                (bn, 'x -> x'),
+                (relu, 'x -> x'),
+                (dropout, 'x -> x')
+            ]))
 
-    # Forward method with print statements
+        self.lin1 = Linear(64, 32)  # Adjust input features to 64
+        self.lin2 = Linear(32, num_classes)
+
     def forward(self, batch):
         x = batch.x
         edge_index = batch.edge_index
 
         for i in range(self.num_gnn_layers):
-            print(f"Layer {i}: {self.gnn_layers[i]}")  # Print the layer
+            x = self.gnn_layers[i](x, edge_index)
 
-            # Apply GATConv with x and edge_index
-            x = self.gnn_layers[i][0](x, edge_index)
+        # Apply global mean pooling to aggregate node embeddings
+        x = global_mean_pool(x, batch.batch)
 
-            # Apply the remaining layers in the Sequential with only x
-            for j in range(1, len(self.gnn_layers[i])):
-                x = self.gnn_layers[i][j](x)
-
-            x, edge_index, _, batch, _, _ = self.pooling_layers[i](x, edge_index, batch=batch)
-
-        x = self.lin1(x) #This line and the following were incorrectly indented
+        x = self.lin1(x)
         x = F.relu(x)
         x = F.dropout(x, p=0.5, training=self.training)
         x = self.lin2(x)
-        return x #Corrected indentation
+
+        return x
 
 # Define the loss function
 loss_fn = nn.BCEWithLogitsLoss()
 
 # Instantiate the model
 feature_size = 128  # Example feature size
-gnn_hidden_channels = 64  # Example GNN hidden size
-mlp_hidden_channels = 128  # Example MLP hidden size
-dropout_rate = 0.3  # Example dropout rate
+num_classes = 2 # Example number of classes
 num_gnn_layers = 3  # Example number of GNN layers
 
 # Create an instance of your EnhancedHybridGNNModel
-model = EnhancedHybridGNNModel(feature_size, gnn_hidden_channels, mlp_hidden_channels, dropout_rate, num_gnn_layers)
+model = EnhancedHybridGNNModel(feature_size, num_classes, num_gnn_layers)
 
 # Define the optimizer with model parameters
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)  # L2 regularization
@@ -333,6 +318,8 @@ for epoch in range(epochs):
     if early_stopping.step(val_loss):
         print("Early stopping triggered.")
         break
+
+
 
 
 
